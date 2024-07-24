@@ -1,0 +1,8 @@
+{
+  "name": "refined-prices",
+  "version": "1.0.0",
+  "main": "update.js",
+  "scripts": {
+    "build": "node update.js"
+  }
+}
