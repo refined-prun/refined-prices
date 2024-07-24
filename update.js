@@ -5,10 +5,13 @@ const now = Date.now();
 async function fetchAndUpdatePrices() {
   const actual = await fetchJson('https://rest.fnar.net/exchange/all');
   const prices = JSON.parse(fs.readFileSync('all.json', 'utf-8'));
-  let wasUpdated = false;
+  let rateLimited = false;
   for (const item of prices) {
     const fullTicker = getFullTicker(item);
-    if (!isStaleTimestamp(item.Timestamp)) {
+    const upToDateItem = actual.find(x => getFullTicker(x) === fullTicker);
+    Object.assign(item, upToDateItem);
+
+    if (!isStaleTimestamp(item.Timestamp) || rateLimited) {
       console.log('OK: ' + fullTicker);
       continue;
     }
@@ -20,6 +23,7 @@ async function fetchAndUpdatePrices() {
     ]);
     if (rawCxpc === undefined) {
       console.log('RATE LIMITED');
+      rateLimited = true;
       break;
     }
 
@@ -63,8 +67,6 @@ async function fetchAndUpdatePrices() {
       last30Days = undefined;
     }
 
-    const upToDateItem = actual.find(x => getFullTicker(x) === fullTicker);
-    Object.assign(item, upToDateItem);
     item.Timestamp = new Date().toISOString();
     item.FullTicker = fullTicker;
     item.Open = today?.Open;
@@ -78,21 +80,20 @@ async function fetchAndUpdatePrices() {
     item.LowYesterday = yesterday?.Low;
     item.TradedYesterday = yesterday?.Traded;
     item.TWAP7D = formatNumber(twap(last7Days));
+    item.VWAP7D = formatNumber(vwap(last7Days));
     item.Traded7D = last7Days?.map(x => x.Traded).reduce((x, y) => x + y, 0);
     item.AverageTraded7D = formatNumber(last7Days?.map(x => x.Traded).reduce((x, y) => x + y / 7, 0));
     item.TWAP30D = formatNumber(twap(last30Days));
+    item.VWAP30D = formatNumber(vwap(last30Days));
     item.Traded30D = last30Days?.map(x => x.Traded).reduce((x, y) => x + y, 0);
     item.AverageTraded30D = formatNumber(last30Days?.map(x => x.Traded).reduce((x, y) => x + y / 30, 0));
 
     replaceUndefinedWithNull(item);
-    wasUpdated = true;
-
     await timeout(1000);
   }
-  if (wasUpdated) {
-    fs.writeFileSync('all.json', JSON.stringify(prices, null, 2));
-    fs.writeFileSync('all.csv', jsonToCsv(prices));
-  }
+
+  fs.writeFileSync('all.json', JSON.stringify(prices, null, 2));
+  fs.writeFileSync('all.csv', jsonToCsv(prices));
   console.log('Prices updated successfully');
   process.exit(0);
 }
@@ -121,7 +122,7 @@ function timeout(ms) {
 
 function jsonToCsv(jsonData) {
   const array = Array.isArray(jsonData) ? jsonData : [jsonData];
-  const keys = Object.keys(array[0]);
+  const keys = Object.keys(array[0]).filter(x => x !== 'Timestamp');
   const csvRows = [keys.join(',')];
 
   for (const obj of array) {
@@ -157,10 +158,28 @@ function twap(data) {
   }
 
   let totalTradedValue = 0;
+  let totalDays = 0;
+
+  for (const day of data) {
+    const price = (day.Open + day.Close + day.High + day.Low) / 4;
+    totalTradedValue += price;
+    totalDays++;
+  }
+
+  return totalDays > 0 ? totalTradedValue / totalDays : undefined;
+}
+
+function vwap(data) {
+  if (!data) {
+    return undefined;
+  }
+
+  let totalTradedValue = 0;
   let totalVolume = 0;
 
   for (const day of data) {
-    totalTradedValue += day.Traded * day.Close;
+    const price = (day.Open + day.Close + day.High + day.Low) / 4;
+    totalTradedValue += day.Traded * price;
     totalVolume += day.Traded;
   }
 
