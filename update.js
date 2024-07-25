@@ -6,7 +6,7 @@ async function fetchAndUpdatePrices() {
   const actual = await fetchJson('https://rest.fnar.net/exchange/all');
   const current = JSON.parse(fs.readFileSync('all.json', 'utf-8'));
 
-  const sorted = current.sort((a, b) => {
+  const sorted = current.slice().sort((a, b) => {
     const dateA = a.Timestamp ? new Date(a.Timestamp) : new Date(0);
     const dateB = b.Timestamp ? new Date(b.Timestamp) : new Date(0);
     return dateA - dateB;
