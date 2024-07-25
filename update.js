@@ -24,7 +24,7 @@ async function fetchAndUpdatePrices() {
     if (rawCxpc === undefined) {
       console.log('RATE LIMITED');
       rateLimited = true;
-      break;
+      continue;
     }
 
     const cxpc = {};
@@ -50,10 +50,7 @@ async function fetchAndUpdatePrices() {
     }
 
     const DAY_ONE = cxpc.DAY_ONE ?? [];
-    let yesterday = DAY_ONE[1];
-    if (yesterday && !isInLast48To24Hours(yesterday.DateEpochMs)) {
-      yesterday = undefined;
-    }
+    let yesterday = DAY_ONE.filter(x => isInLast48To24Hours(x.DateEpochMs))[0];
     let last7Days = DAY_ONE.filter(x => isInLast7Days(x.DateEpochMs));
     if (last7Days.length === 0) {
       last7Days = undefined;
