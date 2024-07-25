@@ -49,20 +49,16 @@ async function fetchAndUpdatePrices() {
       values.sort(compare);
     }
 
-    const DAY_ONE = cxpc.DAY_ONE;
-    let today = DAY_ONE?.[0];
-    if (today && !isInLast24Hours(today.DateEpochMs)) {
-      today = undefined;
-    }
-    let yesterday = DAY_ONE?.[1];
+    const DAY_ONE = cxpc.DAY_ONE ?? [];
+    let yesterday = DAY_ONE[1];
     if (yesterday && !isInLast48To24Hours(yesterday.DateEpochMs)) {
       yesterday = undefined;
     }
-    let last7Days = (DAY_ONE ?? []).filter(x => isInLast7Days(x.DateEpochMs));
+    let last7Days = DAY_ONE.filter(x => isInLast7Days(x.DateEpochMs));
     if (last7Days.length === 0) {
       last7Days = undefined;
     }
-    let last30Days = (DAY_ONE ?? []).filter(x => isInLast30Days(x.DateEpochMs));
+    let last30Days = DAY_ONE.filter(x => isInLast30Days(x.DateEpochMs));
     if (last30Days.length === 0) {
       last30Days = undefined;
     }
@@ -126,11 +122,6 @@ function jsonToCsv(jsonData) {
   }
 
   return csvRows.join('\n');
-}
-
-function isInLast24Hours(timestamp) {
-  const oneDay = 24 * 60 * 60 * 1000;
-  return now - timestamp <= oneDay;
 }
 
 function isInLast48To24Hours(timestamp) {
