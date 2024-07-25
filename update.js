@@ -4,9 +4,16 @@ const now = Date.now();
 
 async function fetchAndUpdatePrices() {
   const actual = await fetchJson('https://rest.fnar.net/exchange/all');
-  const prices = JSON.parse(fs.readFileSync('all.json', 'utf-8'));
+  const current = JSON.parse(fs.readFileSync('all.json', 'utf-8'));
+
+  const sorted = current.sort((a, b) => {
+    const dateA = a.Timestamp ? new Date(a.Timestamp) : new Date(0);
+    const dateB = b.Timestamp ? new Date(b.Timestamp) : new Date(0);
+    return dateA - dateB;
+  });
+
   let rateLimited = false;
-  for (const item of prices) {
+  for (const item of sorted) {
     const fullTicker = getFullTicker(item);
     const upToDateItem = actual.find(x => getFullTicker(x) === fullTicker);
     Object.assign(item, upToDateItem);
@@ -80,8 +87,8 @@ async function fetchAndUpdatePrices() {
     await timeout(1000);
   }
 
-  fs.writeFileSync('all.json', JSON.stringify(prices, null, 2));
-  fs.writeFileSync('all.csv', jsonToCsv(prices));
+  fs.writeFileSync('all.json', JSON.stringify(current, null, 2));
+  fs.writeFileSync('all.csv', jsonToCsv(current));
   console.log('Prices updated successfully');
   process.exit(0);
 }
