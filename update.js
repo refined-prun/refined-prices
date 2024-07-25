@@ -69,11 +69,6 @@ async function fetchAndUpdatePrices() {
 
     item.Timestamp = new Date().toISOString();
     item.FullTicker = fullTicker;
-    item.Open = today?.Open;
-    item.Close = today?.Close;
-    item.High = today?.High;
-    item.Low = today?.Low;
-    item.Traded = today?.Traded;
     item.OpenYesterday = yesterday?.Open;
     item.CloseYesterday = yesterday?.Close;
     item.HighYesterday = yesterday?.High;
