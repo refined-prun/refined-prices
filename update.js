@@ -121,7 +121,12 @@ function jsonToCsv(jsonData) {
   const csvRows = [keys.join(',')];
 
   for (const obj of array) {
-    const values = keys.map(key => JSON.stringify(obj[key], (key, value) => value === null ? '' : value));
+    const values = keys.map(key => JSON.stringify(obj[key], (key, value) => {
+      if (typeof value === 'number') {
+        return Math.round(value * 100) / 100;
+      }
+      return value === null ? '' : value;
+    }));
     csvRows.push(values.join(','));
   }
 
