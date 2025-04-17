@@ -4,7 +4,17 @@ const now = Date.now();
 
 async function fetchAndUpdatePrices() {
   const actual = await fetchJson('https://rest.fnar.net/exchange/all');
-  const current = JSON.parse(fs.readFileSync('all.json', 'utf-8'));
+  const json = JSON.parse(fs.readFileSync('all.json', 'utf-8'));
+  let current = [];
+
+  for (const item of actual) {
+    const existing = json.find(x => x.MaterialTicker === item.MaterialTicker && x.ExchangeCode === item.ExchangeCode);
+    if (existing) {
+      current.push(existing);
+    } else {
+      current.push({ ...item });
+    }
+  }
 
   const sorted = current.slice().sort((a, b) => {
     const dateA = a.Timestamp ? new Date(a.Timestamp) : new Date(0);
