@@ -118,7 +118,15 @@ function isStaleTimestamp(timestamp) {
 }
 
 async function fetchJson(url) {
-  return await (await fetch(url)).json();
+  const response = await fetch(url);
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    console.log('Failed to parse JSON');
+    console.log(text);
+    throw error;
+  }
 }
 
 function timeout(ms) {
