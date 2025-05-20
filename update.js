@@ -68,13 +68,13 @@ async function fetchAndUpdatePrices() {
 
     const DAY_ONE = cxpc.DAY_ONE ?? [];
     let yesterday = DAY_ONE.filter(x => isInLast48To24Hours(x.DateEpochMs))[0];
-    let last7Days = DAY_ONE.filter(x => isInLast7Days(x.DateEpochMs));
-    if (last7Days.length === 0) {
-      last7Days = undefined;
-    }
-    let last30Days = DAY_ONE.filter(x => isInLast30Days(x.DateEpochMs));
+    let last30Days = DAY_ONE.filter(x => isInLast30Days(x.DateEpochMs) && !isAnomalous(x));
+    let last7Days = last30Days.filter(x => isInLast7Days(x.DateEpochMs));
     if (last30Days.length === 0) {
       last30Days = undefined;
+    }
+    if (last7Days.length === 0) {
+      last7Days = undefined;
     }
 
     item.Timestamp = new Date().toISOString();
@@ -101,6 +101,16 @@ async function fetchAndUpdatePrices() {
   fs.writeFileSync('all.csv', jsonToCsv(current));
   console.log('Prices updated successfully');
   process.exit(0);
+}
+
+function isAnomalous(day) {
+  if (day.Traded === 0) {
+    return true;
+  }
+  const max = Math.max(day.Open, day.Close);
+  const min = Math.min(day.Open, day.Close);
+  const factor = 10;
+  return day.High > max * factor || day.Low < min / factor;
 }
 
 function getFullTicker(item) {
@@ -170,15 +180,16 @@ function twap(data) {
     return undefined;
   }
 
-  let totalMoney = 0;
+  let totalPrice = 0;
   let totalDays = 0;
 
   for (const day of data) {
-    totalMoney += day.Volume;
+    const price = (day.Open + day.Close + day.High + day.Low) / 4;
+    totalPrice += price;
     totalDays++;
   }
 
-  return totalDays > 0 ? totalMoney / totalDays : undefined;
+  return totalDays > 0 ? totalPrice / totalDays : undefined;
 }
 
 function vwap(data) {
