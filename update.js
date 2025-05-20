@@ -20,7 +20,7 @@ async function fetchAndUpdatePrices() {
     const dateA = a.Timestamp ? new Date(a.Timestamp) : new Date(0);
     const dateB = b.Timestamp ? new Date(b.Timestamp) : new Date(0);
     return dateA - dateB;
-  }).filter(x => x.MaterialTicker === 'LIO' && x.ExchangeCode === 'AI1');
+  });
 
   let rateLimited = false;
   for (const item of sorted) {
