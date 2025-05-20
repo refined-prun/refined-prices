@@ -20,7 +20,7 @@ async function fetchAndUpdatePrices() {
     const dateA = a.Timestamp ? new Date(a.Timestamp) : new Date(0);
     const dateB = b.Timestamp ? new Date(b.Timestamp) : new Date(0);
     return dateA - dateB;
-  });
+  }).filter(x => x.MaterialTicker === 'LIO' && x.ExchangeCode === 'AI1');
 
   let rateLimited = false;
   for (const item of sorted) {
@@ -170,16 +170,15 @@ function twap(data) {
     return undefined;
   }
 
-  let totalTradedValue = 0;
+  let totalMoney = 0;
   let totalDays = 0;
 
   for (const day of data) {
-    const price = (day.Open + day.Close + day.High + day.Low) / 4;
-    totalTradedValue += price;
+    totalMoney += day.Volume;
     totalDays++;
   }
 
-  return totalDays > 0 ? totalTradedValue / totalDays : undefined;
+  return totalDays > 0 ? totalMoney / totalDays : undefined;
 }
 
 function vwap(data) {
@@ -187,16 +186,15 @@ function vwap(data) {
     return undefined;
   }
 
-  let totalTradedValue = 0;
-  let totalVolume = 0;
+  let totalMoney = 0;
+  let totalAmount = 0;
 
   for (const day of data) {
-    const price = (day.Open + day.Close + day.High + day.Low) / 4;
-    totalTradedValue += day.Traded * price;
-    totalVolume += day.Traded;
+    totalMoney += day.Volume;
+    totalAmount += day.Traded;
   }
 
-  return totalVolume > 0 ? totalTradedValue / totalVolume : undefined;
+  return totalAmount > 0 ? totalMoney / totalAmount : undefined;
 }
 
 function formatNumber(number) {
