@@ -3,7 +3,7 @@ const fs = require('fs');
 const now = Date.now();
 
 async function fetchAndUpdatePrices() {
-  const actual = await fetchJson('https://rest.fnar.net/exchange/all');
+  const actual = await fetchJson('https://rest.fnar.net/exchange/all', []);
   const json = JSON.parse(fs.readFileSync('all.json', 'utf-8'));
   let current = [];
 
@@ -35,7 +35,7 @@ async function fetchAndUpdatePrices() {
 
     console.log('UPDATING: ' + fullTicker);
     const rawCxpc = await Promise.race([
-      fetchJson('https://rest.fnar.net/exchange/cxpc/' + fullTicker),
+      fetchJson('https://rest.fnar.net/exchange/cxpc/' + fullTicker, []),
       timeout(3000),
     ]);
     if (rawCxpc === undefined) {
@@ -127,8 +127,11 @@ function isStaleTimestamp(timestamp) {
   return existingTimestamp < oneDayAgo;
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, fallback) {
   const response = await fetch(url);
+  if (response.status === 204) {
+    return fallback;
+  }
   const text = await response.text();
   try {
     return JSON.parse(text);
