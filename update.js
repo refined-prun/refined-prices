@@ -24,6 +24,8 @@ async function fetchAndUpdatePrices() {
 
   let rateLimited = false;
   for (const item of sorted) {
+    const ticker = item.MaterialTicker;
+    const exchange = item.ExchangeCode;
     const fullTicker = getFullTicker(item);
     const upToDateItem = actual.find(x => getFullTicker(x) === fullTicker);
     Object.assign(item, upToDateItem);
@@ -68,8 +70,8 @@ async function fetchAndUpdatePrices() {
 
     const DAY_ONE = cxpc.DAY_ONE ?? [];
     let yesterday = DAY_ONE.filter(x => isInLast48To24Hours(x.DateEpochMs))[0];
-    let last30Days = DAY_ONE.filter(x => isInLast30Days(x.DateEpochMs) && !isAnomalous(x));
-    let last7Days = last30Days.filter(x => isInLast7Days(x.DateEpochMs));
+    let last30Days = DAY_ONE.filter(x => isInLast30Days(x.DateEpochMs) && !isAnomalous(ticker, exchange, x));
+    let last7Days = last30Days.filter(x => isInLast7Days(x.DateEpochMs) && !isAnomalous(ticker, exchange, x));
     if (last30Days.length === 0) {
       last30Days = undefined;
     }
@@ -103,8 +105,33 @@ async function fetchAndUpdatePrices() {
   process.exit(0);
 }
 
-function isAnomalous(day) {
+const incidents = {
+  // https://discord.com/channels/350171287785701388/359623296993722368/1500892559747186860
+  '04.05.2026 SF Dupe': {
+    '*.AI1': [1777852800000],
+  },
+  // https://discord.com/channels/350171287785701388/350171288267915277/1501245484407328829
+  '05.05.2026 SF Dupe Part II': {
+    '*.IC1': [1777939200000],
+  },
+}
+
+const anomalousDays = new Set();
+for (const incident of Object.values(incidents)) {
+  for (const [ticker, timestamps] of Object.entries(incident)) {
+    for (const timestamp of timestamps) {
+      anomalousDays.add(`${ticker}${timestamp}`);
+    }
+  }
+}
+
+function isAnomalous(ticker, exchange, day) {
   if (day.Traded === 0) {
+    return true;
+  }
+  const ts = day.DateEpochMs;
+  const patterns = [ticker + '.' + exchange, `*.${exchange}`, `${ticker}.*`, '*'];
+  if (patterns.some(p => anomalousDays.has(`${p}${ts}`))) {
     return true;
   }
   const max = Math.max(day.Open, day.Close);
