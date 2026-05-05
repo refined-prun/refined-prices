@@ -1,6 +1,7 @@
 const fs = require('fs');
 
 const now = Date.now();
+const DAYS_BACK = 32;
 
 async function fetchAndUpdatePrices() {
   const actual = await fetchJson('https://rest.fnar.net/exchange/all', []);
@@ -16,59 +17,22 @@ async function fetchAndUpdatePrices() {
     }
   }
 
-  const sorted = current.slice().sort((a, b) => {
-    const dateA = a.Timestamp ? new Date(a.Timestamp) : new Date(0);
-    const dateB = b.Timestamp ? new Date(b.Timestamp) : new Date(0);
-    return dateA - dateB;
-  });
+  const sinceTimestamp = now - DAYS_BACK * 24 * 60 * 60 * 1000;
+  const cxpcFull = await fetchJson('https://rest.fnar.net/exchange/cxpc/full/DAY_ONE/' + sinceTimestamp, []);
+  const entriesByTicker = new Map();
+  for (const group of cxpcFull) {
+    const fullTicker = group.MaterialTicker + '.' + group.ExchangeCode;
+    entriesByTicker.set(fullTicker, group.Entries ?? []);
+  }
 
-  let rateLimited = false;
-  for (const item of sorted) {
+  for (const item of current) {
     const ticker = item.MaterialTicker;
     const exchange = item.ExchangeCode;
     const fullTicker = getFullTicker(item);
     const upToDateItem = actual.find(x => getFullTicker(x) === fullTicker);
     Object.assign(item, upToDateItem);
 
-    if (!isStaleTimestamp(item.Timestamp) || rateLimited) {
-      console.log('OK: ' + fullTicker);
-      continue;
-    }
-
-    console.log('UPDATING: ' + fullTicker);
-    const rawCxpc = await Promise.race([
-      fetchJson('https://rest.fnar.net/exchange/cxpc/' + fullTicker, []),
-      timeout(3000),
-    ]);
-    if (rawCxpc === undefined) {
-      console.log('RATE LIMITED');
-      rateLimited = true;
-      continue;
-    }
-
-    const cxpc = {};
-    for (const entry of rawCxpc) {
-      const values = cxpc[entry.Interval] ?? [];
-      values.push(entry);
-      cxpc[entry.Interval] = values;
-    }
-
-    function compare(a, b) {
-      if (a.DateEpochMs < b.DateEpochMs) {
-        return 1;
-      }
-      if (a.DateEpochMs > b.DateEpochMs) {
-        return -1;
-      }
-      return 0;
-    }
-
-    for (const interval in cxpc) {
-      const values = cxpc[interval];
-      values.sort(compare);
-    }
-
-    const DAY_ONE = cxpc.DAY_ONE ?? [];
+    const DAY_ONE = (entriesByTicker.get(fullTicker) ?? []).slice().sort(compareEntries);
     let yesterday = DAY_ONE.filter(x => isInLast48To24Hours(x.DateEpochMs))[0];
     let last30Days = DAY_ONE.filter(x => isInLast30Days(x.DateEpochMs) && !isAnomalous(ticker, exchange, x));
     let last7Days = last30Days.filter(x => isInLast7Days(x.DateEpochMs) && !isAnomalous(ticker, exchange, x));
@@ -96,13 +60,22 @@ async function fetchAndUpdatePrices() {
     item.AverageTraded30D = formatNumber(last30Days?.map(x => x.Traded).reduce((x, y) => x + y / 30, 0));
 
     replaceUndefinedWithNull(item);
-    await timeout(1000);
   }
 
   fs.writeFileSync('all.json', JSON.stringify(current, null, 2));
   fs.writeFileSync('all.csv', jsonToCsv(current));
   console.log('Prices updated successfully');
   process.exit(0);
+}
+
+function compareEntries(a, b) {
+  if (a.DateEpochMs < b.DateEpochMs) {
+    return 1;
+  }
+  if (a.DateEpochMs > b.DateEpochMs) {
+    return -1;
+  }
+  return 0;
 }
 
 const incidents = {
@@ -144,16 +117,6 @@ function getFullTicker(item) {
   return item.MaterialTicker + '.' + item.ExchangeCode;
 }
 
-function isStaleTimestamp(timestamp) {
-  if (!timestamp) {
-    return true;
-  }
-
-  const existingTimestamp = new Date(timestamp);
-  const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
-  return existingTimestamp < oneDayAgo;
-}
-
 async function fetchJson(url, fallback) {
   const response = await fetch(url);
   if (response.status === 204) {
@@ -167,10 +130,6 @@ async function fetchJson(url, fallback) {
     console.log(text);
     throw error;
   }
-}
-
-function timeout(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function jsonToCsv(jsonData) {
