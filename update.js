@@ -91,6 +91,10 @@ const incidents = {
   '06.05.2026 SF Dupe Part III': {
     '*.AI1': [1778025600000],
   },
+  // https://discord.com/channels/350171287785701388/350171288267915277/1531375495374049301
+  '27.07.2026 Dupe': {
+    '*.AI1': [1785110400000],
+  },
 }
 
 const anomalousDays = new Set();
